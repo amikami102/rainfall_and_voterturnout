@@ -1,0 +1,19 @@
+# ignore the following directories from output/
+output/rainfall/points/
+output/rainfall/points_reproj/
+output/rainfall/krigoutput/
+output/rainfall/raster_reproj/
+output/rainfall/reduced/
+
+# ignore these folders
+man/
+literature/
+data/
+
+
+# ignore .Rproj
+**.Rproj
+
+# ignore zipped files
+**.gz
+**.zip

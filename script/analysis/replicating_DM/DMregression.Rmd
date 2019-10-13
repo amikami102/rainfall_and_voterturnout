@@ -1,0 +1,73 @@
+---
+title: "Duhaime and Moulton (2016)'s regression"
+output:
+  html_notebook:
+    number_sections: yes
+    toc: yes
+    toc_depth: 2
+    toc_float: no
+---
+
+```{r}
+# load favorite libraries
+suppressMessages(library(magrittr))
+suppressMessages(library(dplyr))
+suppressMessages(library(foreign))
+suppressMessages(library(lme4))
+suppressMessages(library(stargazer))
+
+# load dataset
+dmdata <- read.dta('DuhaimeMoulton2016DataFile.dta')
+names(dmdata)
+```
+
+
+```{r DuhaimeMoulton, eval=FALSE}
+## from Duhaime and Moulton's code
+zelig(Turnout ~ Rain + Snow + post_competitive + Rain*post_competitive + Snow*post_competitive+ ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + Turnout_Lag + avg_rain + avg_snow + Yr76 + Yr80 + Yr84 + Yr88 + Yr92 + Yr96 + Yr2000 + tag(1|FIPS_County), data=dm, model='ls.mixed')
+
+
+### for GOP Turnout 
+zelig(GOPTurnout ~ Rain + Snow + post_competitive + Rain*post_competitive + Snow*post_competitive + ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + Turnout_Lag + avg_rain + avg_snow + Yr76 + Yr80 + Yr84 + Yr88 + Yr92 + Yr96 + Yr2000 + tag(1|FIPS_County), data=dm, model='ls.mixed')
+
+
+### for TAO Turnout
+zelig(TAOTurnout ~ Rain + Snow + post_competitive + Rain*post_competitive + Snow*post_competitive + ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + Turnout_Lag + avg_rain + avg_snow + Yr76 + Yr80 + Yr84 + Yr88 + Yr92 + Yr96 + Yr2000 + tag(1|FIPS_County), data=dm, model='ls.mixed')
+
+### for Dem Turnout
+zelig(DemTurnout ~ Rain + Snow + post_competitive + Rain*post_competitive + Snow*post_competitive + ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + Turnout_Lag + avg_rain + avg_snow + Yr76 + Yr80 + Yr84 + Yr88 + Yr92 + Yr96 + Yr2000 + tag(1|FIPS_County), data=dm, model='ls.mixed')
+```
+Duhaime and Moulton ran the following regression for their Figure 1 table:
+\begin{align*}
+Y_{ijt} &= \beta_0 + \beta_1(\text{Rain}_{ijt}) + \beta_2(\text{Snow}_{ijt})+\beta_3(\text{Competitive}_{i}) + \beta_4(\text{Rain}_{ijt}*\text{Competitive}_{i}) \\
+& + \beta_5(\text{Snow}_{ijt}*\text{Competitive}_{i}) + \beta_6(\text{% HSG}_{ijt}) + \beta_6(\text{income}_{ijt}) + \beta_7(\text{% Black}_{ijt}) + \beta_8(\text{Farms per capita}_{ijt}) \\
+& + \beta_9(\text{Regist. Closing Date}_{ijt}) + \beta_{10}(\text{Motor Voter}_{j}) + \beta_{11}(\text{Gubernatorial Election}_{jt}) \\
+& + \beta_{12}(\text{Senatorial Election}_{jt}) + \beta_{13}(\text{Agg. Turnout Lagged}_{ijt})\\
+&+ \beta_{14}(\text{Average Rain}_{ijt}) + \beta_{15}(\text{Average Snow}_{ijt}) \\
+& + \beta_{16}(\text{Year 1976}_{t}) + \beta_{17}(\text{Year 1980}_t) + \beta_{18}(\text{Year 1984}_t)\\
+& + \beta_{19}
+(\text{Year 1988}_t) + \beta_{20}(text{Year 1992}_t) + \beta_{21}(\text{Year 1996}_t) + \beta_{22}(\text{Year 2000}_t) + \mu_{i} + e_{ijt}
+\end{align*}
+where $i$ marks the county, $j$ the state, and $t$ the election year. $Y_{ijt}$ is aggregate turnout (`Turnout`) for model 0, Republican turnout (`GOPTurnout`) for model 1, Democrat turnout (`DemTurnout`) for model 2, and third-party-and-other turnout (`TAOTurnout`) for model 3. They estimated $\mu_i$ (county-level outcome) as random effect.
+
+Duhaime and Moulton used the `ls.mixed` model from the `Zelig` package, but the model is no longer supported.[^1] We ran the model using `lme4` package. 
+```{r rep_DuhaimeMoulton}
+## replication of Duhaime and Moulton using lme4 
+suppressMessages(library(lme4))
+### model 0 
+dm0 <- lmer(Turnout ~ Rain + Snow + post_competitive + Rain*post_competitive + Snow*post_competitive+ ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + Turnout_Lag + avg_rain + avg_snow + Yr76 + Yr80 + Yr84 + Yr88 + Yr92 + Yr96 + Yr2000 +  (1 | FIPS_County), 
+           data=dmdata)
+### model 1
+dm1 <- lmer(GOPTurnout ~ Rain + Snow + post_competitive + Rain*post_competitive + Snow*post_competitive+ ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + Turnout_Lag + avg_rain + avg_snow + Yr76 + Yr80 + Yr84 + Yr88 + Yr92 + Yr96 + Yr2000 + (1 | FIPS_County), 
+           data=dmdata)
+### model 2
+dm2 <- lmer(DemTurnout ~ Rain + Snow + post_competitive + Rain*post_competitive + Snow*post_competitive+ ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + Turnout_Lag + avg_rain + avg_snow + Yr76 + Yr80 + Yr84 + Yr88 + Yr92 + Yr96 + Yr2000 +  (1 | FIPS_County), 
+           data=dmdata)
+### model 3
+dm3 <- lmer(TAOTurnout ~ Rain + Snow + post_competitive + Rain*post_competitive + Snow*post_competitive+ ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + Turnout_Lag + avg_rain + avg_snow + Yr76 + Yr80 + Yr84 + Yr88 + Yr92 + Yr96 + Yr2000 + (1 | FIPS_County), 
+           data=dmdata)
+```
+
+```{r table_DuhaimeMoulton, echo=FALSE, results='asis', fig.align='center'}
+stargazer(dm0, dm1, dm2, dm3, digits = 3, type='html')
+```

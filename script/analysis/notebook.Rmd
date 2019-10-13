@@ -1,0 +1,26 @@
+---
+title: "Notebook"
+date: '`r format(Sys.time(), "%B %e, %Y")`'
+output: html_document
+---
+
+
+
+This file documents the progress made in the analysis of our data. As files get moved, reorganized, rewritten, and archived, the older markdown documents can no longer be compiled. 
+
+## replicating Duhaime and Moulton (2017)
+
+We replicate Duhaime and Moulton's paper. 
+
+## 2018-07-18
+
+We use Duhaime and Moulton's data to run our own models.
+
+## 2018-09-30 
+
+We begin using the CCES dataset, aiming for hierarchical model that uses predictors observed at individual and county levels. The data for rainfall is taken from Cooperman (2017)'s dataset.
+
+## 2019-03-22
+
+We merge CCES datasets to the rainfall data that we retrieved from GHCND-Daily instead of using Cooperman's dataset. At this point, the directory has been overhauled and reorganized, and scripts made prior to 2019 have been modified or archived. 
+

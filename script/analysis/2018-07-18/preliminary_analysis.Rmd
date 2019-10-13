@@ -1,0 +1,150 @@
+---
+title: "Preliminary Analysis"
+output:
+  html_notebook:
+    number_sections: yes
+    toc: yes
+    toc_depth: 2
+    toc_float: yes
+---
+
+```{r setup, echo=FALSE}
+rm(list = ls())
+
+# load favorite libraries
+x <- c("dplyr", "foreign", "lme4", "stargazer", "RColorBrewer")
+lapply(x, library, character.only = TRUE)
+
+```
+
+Here are some preliminary analysis on Duhaime and Moulton (2016)'s data.
+
+```{r data}
+# load dataset
+dmdata <- read.dta('data/DuhaimeMoulton2016DataFile.dta')
+names(dmdata)
+```
+
+# Turnout 
+```{r}
+# summary for turnout each year
+color <- c("GOP" = "#FE4A5C", "Dem" = "#229AFF", "TAO" = "#5AC152")
+boxplot(Turnout ~ Year, data = dmdata, main = "Turnout per election")
+boxplot(GOPTurnout ~ Year, data = dmdata, 
+        main = "GOP Turnout per election", col=color["GOP"])
+boxplot(DemTurnout ~ Year, data = dmdata, 
+        main = "Dem. Turnout per election", col=color["Dem"])
+boxplot(TAOTurnout ~ Year, data = dmdata, 
+        main = "TAO Turnout per election", col = color["TAO"])
+
+```
+
+# Vote Share 
+
+
+```{r}
+# boxplots for vote share each year
+boxplot(GOPVoteShare ~ Year, data = dmdata, 
+        main = "GOP vote share per election", col=color["GOP"])
+boxplot(DemVoteShare ~ Year, data = dmdata, 
+        main = "Dem. vote share per election", col = color["Dem"])
+boxplot(TAOVoteShare ~ Year, data = dmdata, 
+        main = "TAO vote share per election", col = color["TAO"])
+
+```
+
+
+# Rainfall 
+```{r}
+# boxplot rainfall
+boxplot(Rain ~ Year, data = dmdata, main = "Rainfall (inches)")
+```
+Even from inspection, 1992 was actually the year when it rained probably a little more than previous years, but it was also the year that had the highest TAO votes. This does not seem consistent with Duhaime and Moulton's hypothesis, which predicts that TAO votes would be lower on rainy years due to regret aversion. 
+
+# Snowfall 
+```{r}
+# boxplot for snowfall
+boxplot(Snow ~ Year, data = dmdata, main = "Snowfall (inches)")
+```
+
+## Turnout vs. Rain
+
+```{r}
+# plot turnout against rain 
+plot_rain <- function(data = dmdata, year){
+        title <- paste("Turnout vs. Rainfall in", year)
+        plot(y = data$Turnout[data$Year == year],
+                x = data$Rain[data$Year == year], main = title, ylab = "inches",
+                xlim = c(0, 4))
+}
+for (i in unique(dmdata$Year)){plot_rain(year = i)}
+
+```
+## Party-specific Vote share vs. Rain
+```{r}
+# plot Rep. vote share against rain 
+plot_GOPrain <- function(data = dmdata, year){
+        title <- paste("GOP Voteshare vs. Rainfall in", year)
+        #yr <- paste("Yr", year-1900, sep = "") 
+        plot(y = data$GOPVoteShare[data$Year == year],
+                x = data$Rain[data$Year == year], 
+             main = title, ylab = "voteshare (%)", 
+             xlab = "inches",
+                xlim = c(0, 4),
+             col="#FE4A5C")
+}
+for (i in unique(dmdata$Year)){plot_GOPrain(year = i)}
+```
+Their hypothesis is that if it rains, those who would have voted for 3rd party candidate would vote for whichever major party candidate that is closest in ideology to their true preferrerd candidate. In particular, in years 88, 92, and 96, these voters would be more likely to vote for Republicans because the 3rd party candidates of these years were more closely aligned with the GOP. In year 2000, the 3rd party candidate, Ralph Nader, was closer to the Democrats, so the hypothesis is that rain would have caused Nader supporters to vote for the Democrat. The scatter plot of GOP voteshare against rainfall shows no discernable trend (upward or downward) for these years. 
+
+```{r}
+# plot Dem. vote share against rain 
+plot_Demrain <- function(data = dmdata, year){
+        title <- paste("Dem. Voteshare vs. Rainfall in", year)
+        #yr <- paste("Yr", year-1900, sep = "") 
+        plot(y = data$DemVoteShare[data$Year == year],
+                x = data$Rain[data$Year == year], 
+             main = title, ylab = "voteshare (%)", 
+             xlab = "inches",
+                xlim = c(0, 4),
+             col = "#229AFF")
+}
+for (i in unique(dmdata$Year)){plot_Demrain(year = i)}
+```
+
+
+
+# Turnout vs. Snowfall
+```{r}
+# plot turnout against snowfall 
+plot_snow <- function(data = dmdata, year){
+        title <- paste("Turnout vs. Snowfall in", year)
+        #yr <- paste("Yr", year-1900, sep = "") 
+        plot(y = data$Turnout[data$Year == year],
+                x = data$Snow[data$Year == year], main = title, ylab = "inches",
+                xlim = c(0, 8))
+}
+for (i in unique(dmdata$Year)){plot_snow(year = i)}
+```
+
+
+
+
+
+
+
+
+# Some questionable data
+
+## `avg_rain` and `avg_snow` 
+
+Duhaime and Moulton's dataset contains `avg_rain` and `avg_snow`, which is not contained in the Gomez et. al's original datset. The code does not contain how `avg_rain` and `avg_snow` were calculated. 
+
+It would seem that these columns refer to the average rainfall a county had in a particular year. National Centers for Environmental Information has a Climate Data Online that has a global yearly summary data collected from weather stations for past years. Usually a county has multiple weather stations (though not all of them may be in operation every year). There is no yearly data on average precipitation, but they do have total rain and snowfall content. For example, the Autauguaville 3N weather station in Autagua County, Alabama recorded total liquid precipitation content of 52.54 inches for the year 1972, which divided by 365 would give an average precipitation rate of `r 52.54/365` inches per day. However, the entry under `avg_rain` is `r dmdata$avg_rain[dmdata$Year == 1972 & dmdata$County == "AUTAUGA"]`. 
+
+## `GOPTurnout`, `DemTurnout`, `TAOTurnout`
+
+The authors say that they obtained party-specific turnout (`GOPTurnout`, `DemTurnout`, and `TAOTurnout`) from Congressional Quarterly (8). 
+
+
+ 

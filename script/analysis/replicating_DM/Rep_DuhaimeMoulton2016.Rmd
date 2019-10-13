@@ -1,0 +1,337 @@
+---
+title: "Our regression"
+output:
+  html_notebook:
+    number_sections: yes
+    toc: yes
+    toc_depth: 2
+    toc_float: yes
+---
+
+```{r, echo=FALSE}
+
+# load favorite libraries
+suppressMessages(library(magrittr))
+suppressMessages(library(dplyr))
+suppressMessages(library(foreign))
+suppressMessages(library(lme4))
+suppressMessages(library(stargazer))
+
+# load dataset
+dmdata <- read.dta('data/DuhaimeMoulton2016DataFile.dta')
+```
+
+# Our Regression, part 1
+
+We believe that Duhaime and Moulton's regression model does not reflect their own hypothesis. We make the following four changes. 
+
+1. change the outcome to major-party turnout and vote share
+
+Duhaime and Moulton claim that in years 88, 92, and 96, the third party candidate was ideologically closer to the Republican party, so rain would have caused the third party voters to actually for the Republican party. Likewise, in 2000, since the Ralph Nader was ideologically closer to the Democrats, the third party voters would have voted for the Democrats if it had rained in their county. The literature does not have a consensus on whether a particular third-party candidate is perceived to be ideologically closer to the Republicans or the Democrats. Hence, we coalesce the GOP and Democrat turnout (voteshare) into one variable of major-party turnout (voteshare). 
+
+
+```{r create_major, eval = FALSE}
+# create major party turnout and voteshare variables
+dmdata$MajorTurnout <- dmdata$GOPTurnout + dmdata$DemTurnout
+dmdata$MajorVoteShare <- dmdata$GOPVoteShare + dmdata$DemVoteShare
+save(dmdata, file = "data/dmdata.RData")
+```
+
+2. omit the interaction between rain (snow) and competitiveness
+The interaction is nonsensical as competitiveness is another source of regret aversion (i.e. voters in competitive districts would hate to see their votes wasted). Therefore, we do not include the interaction term. 
+
+3. keep county-level effects fixed
+
+4. omit the lagged aggregate turnout 
+
+We will regress the following equation on OLS:
+\begin{align*}
+Y_{ijt} &= \beta_0 + \beta_1(\text{Rain}_{ijt}) + \beta_2(\text{Snow}_{ijt})+\beta_3(\text{Competitive}_{i}) \\
+&+ \beta_6(\text{% HSG}_{ijt}) + \beta_6(\text{income}_{ijt}) + \beta_7(\text{% Black}_{ijt}) + \beta_8(\text{Farms per capita}_{ijt}) \\
+& + \beta_9(\text{Regist. Closing Date}_{ijt}) + \beta_{10}(\text{Motor Voter}_{j}) + \beta_{11}(\text{Gubernatorial Election}_{jt}) \\
+& + \beta_{12}(\text{Senatorial Election}_{jt}) \\
+&+ \beta_{14}(\text{Average Rain}_{ijt}) + \beta_{15}(\text{Average Snow}_{ijt}) \\
+& + \beta_{16}(\text{Year 1976}_{t}) + \beta_{17}(\text{Year 1980}_t) + \beta_{18}(\text{Year 1984}_t)\\
+& + \beta_{19}
+(\text{Year 1988}_t) + \beta_{20}(text{Year 1992}_t) + \beta_{21}(\text{Year 1996}_t) + \beta_{22}(\text{Year 2000}_t) + \mu_{i} + e_{ijt}
+\end{align*}
+where $i$ marks the county, $j$ the state, and $t$ the election year. We will estimate $\mu_i$ as fixed effects (hence OLS). We will use major-party turnout for $Y_{ijt}$ for model 1 and major-party vote share for model 2. 
+
+We expect the coefficients on `Rain` and `Snow` to be positive. 
+```{r m1_m2, eval=FALSE}
+## model 1
+m1 <- lm(MajorTurnout ~ Rain + Snow + post_competitive + ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + avg_rain + avg_snow + Yr76 + Yr80 + Yr84 + Yr88 + Yr92 + Yr96 + Yr2000 + relevel(factor(FIPS_County), 1), 
+           data=dmdata)
+save(m1, file='data/m1.RData')
+
+## model 2
+m2 <- lm(MajorVoteShare ~ Rain + Snow + post_competitive + ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + avg_rain + avg_snow + Yr76 + Yr80 + Yr84 + Yr88 + Yr92 + Yr96 + Yr2000 +  relevel(factor(FIPS_County), 1), 
+           data=dmdata)
+save(m2, file='data/m2.RData')
+```
+
+We will also run the same regression except that now the outcome variable is transformed to 
+        $$\delta_{ijt} = Y_{ijt} - Y_{ijt-1}.$$
+\begin{align*}
+\delta_{ijt} &= \beta_0 + \beta_1(\text{Rain}_{ijt}) + \beta_2(\text{Snow}_{ijt})+\beta_3(\text{Competitive}_{i})\\
+& + \beta_6(\text{% HSG}_{ijt}) + \beta_6(\text{income}_{ijt}) + \beta_7(\text{% Black}_{ijt}) + \beta_8(\text{Farms per capita}_{ijt}) \\
+& + \beta_9(\text{Regist. Closing Date}_{ijt}) + \beta_{10}(\text{Motor Voter}_{j}) + \beta_{11}(\text{Gubernatorial Election}_{jt}) \\
+& + \beta_{12}(\text{Senatorial Election}_{jt}) \\
+&+ \beta_{14}(\text{Average Rain}_{ijt}) + \beta_{15}(\text{Average Snow}_{ijt}) \\
+& + \beta_{16}(\text{Year 1976}_{t}) + \beta_{17}(\text{Year 1980}_t) + \beta_{18}(\text{Year 1984}_t)\\
+& + \beta_{19}(\text{Year 1988}_t) + \beta_{20}(text{Year 1992}_t) + \beta_{21}(\text{Year 1996}_t) + \beta_{22}(\text{Year 2000}_t) \\
+&+ \mu_{i} + e_{ijt}
+\end{align*}
+where $i$ marks the county, $j$ the state, and $t$ the election year. We will estimate $\mu_i$ as fixed effects (hence OLS). We will use difference in major-party turnout between year $t$ and $t-1$ for $\delta_{ijt}$ for model 3 and the same for major-party vote share for model 4. 
+
+Bad weather on election day in year $t$ would induce the third-party voters to vote for one of the major parties; hence $\delta_{ijt}$ would increase or stay the same. Thus, the coefficient on `Rain` and `Snow` should be positive. 
+```{r create_lag}
+# create lagged variable for MajorTurnout and MajorVoteShare
+dmdata <- dmdata %>%
+    group_by(FIPS_County) %>%
+    mutate(lag.MajorTurnout = lag(MajorTurnout, 1),
+           lag.MajorVoteShare= lag(MajorVoteShare, 1),
+           lag.TAOTurnout = lag(TAOTurnout, 1),
+           lag.TAOVoteShare = lag(TAOVoteShare, 1))
+dmdata$dTurnout <- dmdata$MajorTurnout - dmdata$lag.MajorTurnout
+dmdata$dVoteShare <- dmdata$MajorVoteShare - dmdata$lag.MajorVoteShare
+save(dmdata, file = "data/dmdata.RData")
+```
+
+```{r m3_m4, eval=FALSE}
+## model 3 
+m3 <- lm(dTurnout ~ Rain + Snow + post_competitive + ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + avg_rain + avg_snow + relevel(factor(FIPS_County), 1), data=dmdata)
+save(m3, file='data/m3.RData')
+
+## model 4 
+m4 <- lm(dVoteShare ~ Rain + Snow + post_competitive + ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection +  avg_rain + avg_snow +   relevel(factor(FIPS_County), 1), data=dmdata)
+save(m4, file='data/m4.RData')
+```
+
+
+```{r m3_m4_duplicate, eval=FALSE}
+## model 3 
+m3.1 <- lm(MajorTurnout ~ lag.MajorTurnout+ Rain + Snow + post_competitive + ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + avg_rain + avg_snow + relevel(factor(FIPS_County), 1), data=dmdata)
+
+
+## model 4 
+m4.1 <- lm(MajorVoteShare ~ lag.MajorVoteShare + Rain + Snow + post_competitive + ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection +  avg_rain + avg_snow +   relevel(factor(FIPS_County), 1), data=dmdata)
+
+save(m3.1, m4.1, file = "data/m34_duplicate.RData")
+```
+
+
+
+
+
+```{r table, echo=FALSE, results='asis', eval=TRUE}
+load('data/m1.RData')
+load('data/m2.RData')
+load('data/m3.RData')
+load('data/m4.RData')
+stargazer(m1, m2, m3, m4, 
+          keep=seq(1,20,1), 
+          column.labels=c('R/D turnout', 'R/D vote share', 'Change in R/D turnout', 'Change in R/D vote share'), type='html') 
+```
+
+
+# Our Regression, part 2
+
+Only election years 1980, 1988, 1992, 1996, and 2000 had viable third-party candidates. First, we will run the same equation except that we will run the regression for each of the third-party years. Second, we will run the same equation except that we include interaction between these years and rainfall (snowfall). 
+
+## Year Models 
+
+### Year 1980 (Andrew Johnson)
+
+We will estimate the following equation. 
+\begin{align*}
+Y_{ijt} &= \beta_0 + \beta_1(\text{Rain}_{ijt}) + \beta_2(\text{Snow}_{ijt})+\beta_3(\text{Competitive}_{i}) \\
+&+ \beta_6(\text{% HSG}_{ijt}) + \beta_6(\text{income}_{ijt}) + \beta_7(\text{% Black}_{ijt}) + \beta_8(\text{Farms per capita}_{ijt}) \\
+& + \beta_9(\text{Regist. Closing Date}_{ijt}) + \beta_{10}(\text{Motor Voter}_{j}) + \beta_{11}(\text{Gubernatorial Election}_{jt}) \\
+& + \beta_{12}(\text{Senatorial Election}_{jt}) \\
+&+ \beta_{14}(\text{Average Rain}_{ijt}) + \beta_{15}(\text{Average Snow}_{ijt}) \\
+& +e_{ijt}
+\end{align*}
+where $t$ is now set to the year 1980 when Andrew Johnson ran as a third-party candidate. We will use major-party turnout for $Y_{ijt}$ in model 1 (`m80_1`) and major-party vote share in model 2 (`m80_2`).
+
+```{r year80, eval=FALSE}
+dmdata80 <- dmdata[dmdata$Year=="1980", ]
+## model 1 for year 1980
+m80_1 <- lm(MajorTurnout ~ Rain + Snow + post_competitive + ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + avg_rain + avg_snow, 
+           data=dmdata80)
+
+## model 2 for year 1980
+m80_2 <- lm(MajorVoteShare ~ Rain + Snow + post_competitive + ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + avg_rain + avg_snow,
+           data=dmdata80)
+save(m80_1, m80_2, file='data/m80_output.RData')
+```
+
+
+### Year 1988 (Ron Paul)
+
+Same as above but set $t$ to year 1988 when Ron Paul ran for president. 
+```{r year88, eval=FALSE}
+dmdata88 <- dmdata[dmdata$Year=="1988", ]
+## model 1 for year 1988
+m88_1 <- lm(MajorTurnout ~ Rain + Snow + post_competitive + ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + avg_rain + avg_snow, 
+           data=dmdata88)
+
+## model 2 for year 1988
+m88_2 <- lm(MajorVoteShare ~ Rain + Snow + post_competitive + ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + avg_rain + avg_snow, 
+           data=dmdata88)
+save(m88_1, m88_2, file='data/m88_output.RData')
+```
+
+#### Year 1992 (Ralph Nader, first time)
+Same as above, but we set $t$ to 1992 when Ralph Nader ran for President. 
+```{r year92, eval=FALSE}
+dmdata92 <- dmdata[dmdata$Year=="1992", ]
+
+## model 1 for year 1988
+m92_1 <- lm(MajorTurnout ~ Rain + Snow + post_competitive + ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + avg_rain + avg_snow, 
+           data=dmdata92)
+
+## model 2 for year 1992
+m92_2 <- lm(MajorVoteShare ~ Rain + Snow + post_competitive + ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + avg_rain + avg_snow, 
+           data=dmdata92)
+save(m92_1, m92_2, file="data/m92_output.RData")
+```
+
+### Year 1996 (Ralph Nader, second time)
+Same as above, but we set $t$ to year 1996 when Ralph Nader ran for President the second time. 
+```{r year96, eval=FALSE}
+dmdata96 <- dmdata[dmdata$Year=="1996", ]
+
+## model 1 for year 1996
+m96_1 <- lm(MajorTurnout ~ Rain + Snow + post_competitive + ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + avg_rain + avg_snow, 
+           data=dmdata96)
+
+## model 2 for year 1996
+m96_2 <- lm(MajorVoteShare ~ Rain + Snow + post_competitive + ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + avg_rain + avg_snow, 
+           data=dmdata96)
+save(m96_1, m96_2, file="m96_output.RData")
+```
+
+### Year 2000 (Ross Perot)
+Same as above, but $t$ is set to year 2000 when Ross Perot ran for President. 
+```{r year00, eval=FALSE}
+dmdata00 <- dmdata[dmdata$Year=="2000", ]
+
+## model 1 for year 2000
+m00_1 <- lm(MajorTurnout ~ Rain + Snow + post_competitive + ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + avg_rain + avg_snow, 
+           data=dmdata00)
+
+## model 2 for year 2000
+m00_2 <- lm(MajorVoteShare ~ Rain + Snow + post_competitive + ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + avg_rain + avg_snow, 
+           data=dmdata00)
+save(m00_1, m00_2, file="data/m00_output.RData")
+```
+
+
+### Year Models Side by Side
+
+```{r table2, results='asis', echo=FALSE, eval=TRUE}
+load('data/m80_output.RData')
+load('data/m88_output.RData')
+load('data/m92_output.RData')
+load('data/m96_output.RData')
+load('data/m00_output.RData')
+
+stargazer(m80_1, m88_1, m92_1, m96_1, m00_1, 
+          column.labels=c("1980", "1988", "1992", "1996", "2000"),
+          dep.var.labels=c("Major Party Tunrout"),
+          type='html')
+
+stargazer(m80_2, m88_2, m92_2, m96_2, m00_2, 
+          column.labels=c("1980", "1988", "1992", "1996", "2000"),
+          dep.var.labels=c("Major Party VoteShare"),
+          type='html')
+```
+
+## Years Interacted with Rain (Snow)
+
+```{r interaction, eval=FALSE}
+m5_1 <- lm(MajorTurnout ~ Rain*Yr76 + Rain*Yr84+ Rain*Yr80 + Rain*Yr88 + Rain*Yr92 +Rain*Yr96 + Rain*Yr2000 +
+                 +Snow*Yr76 + Snow*Yr80 + Snow*Yr84 + Snow*Yr88+Snow*Yr92 + Snow*Yr96 + Snow*Yr2000 + 
+                 post_competitive + ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + avg_rain + avg_snow + Yr76 + Yr84 + relevel(factor(FIPS_County), 1),
+         data = dmdata)
+
+m5_2 <- lm(MajorVoteShare ~ Rain*Yr76 + Rain*Yr84+ Rain*Yr80 + Rain*Yr88 + Rain*Yr92 +Rain*Yr96 + Rain*Yr2000 +
+                 +Snow*Yr76 + Snow*Yr80 + Snow*Yr84 + Snow*Yr88+Snow*Yr92 + Snow*Yr96 + Snow*Yr2000 + 
+                 post_competitive + ZPcntHSGrad + AdjIncome + PcntBlack + FarmsPerCap + Closing + Motor + GubElection + SenElection + avg_rain + avg_snow + Yr76  + Yr84 + relevel(factor(FIPS_County), 1),
+         data = dmdata)
+
+save(m5_1, m5_2, file="data/m5_output.RData")
+
+```
+
+```{r table3, results='asis', echo=FALSE, eval=FALSE}
+load("data/m5_output.RData")
+stargazer(m5_1, m5_2, 
+          keep = seq(3124,3138,1),
+          column.labels = c("Major Party Turnout", "Major Party Voteshare"),
+          type='html')
+```
+
+
+# Three-way interaction and random county-level effects 
+
+A closer replication of Duhaime and Moulton's model except that we keep our dependent variables, `MajorTurnout` and `MajorVoteshare`, and we will also include a three-way interaction between rain, competitiveness, and whether the election year had a viable third-party candidate (called `ThirdParty`).
+
+```{r ThirdParty}
+## create ThirdParty variable
+dmdata$ThirdParty <- ifelse(dmdata$Year == 1976, 
+                            yes = 0, no = 
+        ifelse(dmdata$Year == 1984, 
+               yes = 0, no =
+        ifelse(dmdata$Year == 1972,
+               yes = 0, no = 1)))
+write.csv(dmdata, file = "dmdata.RData")
+```
+
+
+```{r mixed, eval=FALSE}
+me1 <- lmer(MajorTurnout ~
+                    Rain*post_competitive*Yr80 
+            + Rain*post_competitive*Yr92
+            + Rain*post_competitive*Yr96
+           + Snow*post_competitive*Yr80 
+            + Snow*post_competitive*Yr92
+            + Snow*post_competitive*Yr96
+           + ZPcntHSGrad + AdjIncome + PcntBlack  
+           + FarmsPerCap + Closing + Motor 
+           + GubElection + SenElection  
+           + Turnout_Lag + avg_rain  
+           + avg_snow + Yr76 + Yr84
+            +  (1 | FIPS_County), 
+           data=dmdata)
+
+
+me2 <- lmer(MajorVoteShare ~ 
+                    Rain*post_competitive*Yr80 
+            + Rain*post_competitive*Yr92
+            + Rain*post_competitive*Yr96
+           + Snow*post_competitive*Yr80 
+            + Snow*post_competitive*Yr92
+            + Snow*post_competitive*Yr96
+            + ZPcntHSGrad + AdjIncome + PcntBlack 
+            + FarmsPerCap + Closing + Motor 
+            + GubElection + SenElection 
+            + Turnout_Lag + avg_rain 
+            + avg_snow + Yr76 + Yr84
+            +  (1 | FIPS_County), 
+           data=dmdata)
+
+save(me1, me2, file = "data/mixed_output.RData")
+```
+
+```{r, results = 'asis', echo=FALSE}
+load('data/mixed_output.RData')
+stargazer(me1, me2, type = 'html')
+```
+
+
+
+
+
+[^1]: "zelig ls-mixed" no longer available on CRAN: http://docs.zeligproject.org/en/latest/zelig-lsmixed.html 

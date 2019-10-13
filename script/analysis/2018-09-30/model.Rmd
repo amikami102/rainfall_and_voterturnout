@@ -1,0 +1,245 @@
+---
+title: "Main Model"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  prettydoc::html_pretty:
+    theme: tactile
+    highlight: github
+bibliography: "literature/references.bib"
+---
+
+
+```{r, include = FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(echo = FALSE)
+setwd("~/Dropbox/weather voting replication shared")
+
+# load favorite libraries
+source("script/00_setup.R")
+
+# load prepared dataset
+source("script/loadRDS.R")
+```
+
+
+## @Fraga2016 "Candidates or Districts? Reevaluating the Role of Race in Voter Turnout" 
+
+The author runs a GEE regression predicting jurisdiction-level turnout (i.e., district- and state-level turnouts) for an ethnic-racial group using 2006, 2008, and 2010 election results. 
+
+**State level**
+
+- Age (% < 35) 
+- Education (% No HS)
+- Income (% < 20k)
+- Open Seat (1/0)
+- Cook PVI $[0, 1]$ to measure ex-post competitiveness 
+- Rescaled Cook PVI $[0.5, 1]$ to meausre ex-ante competitiveness
+- Senate/gubernatorial race (1/0)
+- Presidential primary (1/0) 
+- Primary type $[0,1]$ to measure openness of primary 
+- Runoff states (AL, AR, GA, MS, NC, OK, SC, TX)
+- South (AL, FL, GA, LA, NC, SC, MS, TN according to footnote 15)
+
+
+## @Rocha2010 "Race and Turnout: Does Descriptive Representation in State Legislatures Increase Minority Voting?"
+
+The main result in Table 3 runs logit regression on the probability that individual $i$ residing in state $j$ would turn out to vote in a given year. 
+
+**Individual level**
+
+- Age (yrs) 
+- Age squared
+- Income (12 pt. ordinal)
+- Education (6pt. ordinal)
+- Male (1/0)
+- Married (1/0)
+- Children younger than 18 (1/0)
+- Government worker (1/0)
+- Military veteran (1/0)
+- Residential mobility, i.e. how long have you lived at this residential address? (1 if lived 5 years or longer, 0 otherwise)
+- Urban resident (Y/N)
+- Suburban resident (Y/N)
+- Management (Y/N)
+- Professional (Y/N)
+- Service (Y/N)
+- Sales (Y/N)
+- Secretarial (Y/N)
+- Farming (Y/N)
+- Transportation (Y/N)
+
+**State level**
+
+- Registration closing date
+- Exposure ballot measures (# of initiatives on state ballot)
+- % HS graduate
+- Competitive presidential race (measured as margin of victory)
+- Competitive senate race (measured as margin of victory)
+- Competitive governor race (measured as margin of victory)
+
+## @Springer2014 *How States Shaped the Nation: American Electoral Institutions and Voter Turnout, 1920-2000* 
+
+The main result presented in Table 5.1 is from a mixed effect model predicting state-level voter turnout using state-fixed effects and year-fixed effects.
+
+**State level**
+
+- Education (% $\geq$ 25 y.o. who graduated from high school in a given year)
+- Per capita income in 2000 dollars by 1k increment 
+- % black population in state 
+- % other non-white, non-black population in state
+- % Age 45 or above 
+
+## @Gomezetal2007 "The Republicans Should Pray for Rain: Weather, Turnout, and Voting in U.S. Presidential Elections"
+
+Table 1 presents a random effects model predicting county-level vote turnout in U.S. elections from 1948 to 2000 using the following county-level variables. 
+
+**County level**
+
+- % HS graduate 
+- Median household income
+- % African American 
+- Rural (# of farms per capita county)
+- Registration closing date (# of days between the last registration day and Election Day)
+- Motor Voter program 
+- Property requirement for voter registration 
+- Literacy test for voter registration 
+- Poll tax for voter registration 
+- Gubernatorial election 
+- Senate election 
+- Lagged voter turnout 
+
+## Complete Pooling  
+
+**NB**: CCES2012 has no validation of voter history. 
+
+Here is how we will recode our dependent variable, which is the post-election survey answer to whether they voted: for 2006,
+        $$Y_i = \begin{cases}
+                1 & \texttt{Voted[i] == "Yes"} \\
+                0 & \text{otherwise}
+                \end{cases};$$
+for 2008, 2010, and 2012:
+        $$ Y_i = \begin{cases}
+                1 & \texttt{Voted[i] == "I definitely voted in the November General Election"} \\
+                0 & \text{otherwise}
+                \end{cases}.$$
+
+```{r, eval = FALSE}
+# Create `y` variable according to the coding scheme above
+cces2006$Y <- ifelse(cces2006$Voted == "Yes" & 
+                        cces2006$Registered == "", 1, 
+                         ifelse(cces2006$Voted == "No", 0, NA)) %>% 
+                                as.factor()
+
+cces2008$Y <- ifelse(grepl("I definitely voted", cces2008$Voted), 
+                         1, 0)  %>% as.factor()
+
+cces2010$Y <- ifelse(
+        grepl("I definitely voted", cces2010$Voted), 1, 0) %>% 
+        as.factor()
+
+cces2012$Y <- ifelse(
+        grepl("I definitely voted", cces2012$Voted), 1, 0) %>%
+        as.factor()
+
+```
+
+
+```{r, eval = FALSE}
+# Bind them all w/o "Validated" column
+df <- rbind(select(cces2006, -Validated),
+            select(cces2008, -Validated),
+            select(cces2010, -Validated),
+            cces2012)
+saveRDS(df, file = "data/model_df.rds")
+```
+
+We will run a model predicting the probability that individual $i$ will turn out, $\pi_i = P(Y_i = 1)$. 
+
+\begin{align*}
+\rm{logit}(\pi_i) & = \beta_0 + \beta_1(\it{Age}) + \beta_2(\it{Age}^2) + \beta_3(\it{Income}) \\
+        & + \beta_4(\it{Race}) + \beta_5(\it{Education}) + \beta_6(\it{Rainfall SPI}) \\
+        & +  \beta_7(\it{Yr2008}) + \beta_8(\it{Yr2010}) + \beta_{9}(\it{Yr2012}) + \epsilon 
+\end{align*}
+
+
+
+```{r}
+# Separate the dataset to general and midterm elections 
+# with additional tweaks to the variables 
+df_mid <- readRDS("data/model_df.rds") %>%
+        mutate(AgeSquared = Age^2,
+               Education = unclass(Education),
+               Income = unclass(Income)
+               ) %>% filter(Midterm == TRUE)
+df_gen <- readRDS("data/model_df.rds") %>%
+         mutate(AgeSquared = Age^2,
+               Education = unclass(Education),
+               Income = unclass(Income)
+               ) %>% filter(Midterm == FALSE)
+```
+
+
+```{r, echo = TRUE}
+# Run logit for midterm elections
+mod_mid <- glm(Voted ~ Age + AgeSquared + Income + Race + Education + 
+                    Rainfall12 + 
+                    PctHSgrad + Rural + PctBlack + MedianHouseIncome, 
+           data = df_mid, family= "binomial")
+summary(mod_mid)
+```
+
+
+```{r, echo = TRUE}
+# Run logit for general elections
+mod_gen <- glm(Voted ~ Age + AgeSquared + Income + Race + 
+                       Education + 
+                    Rainfall12 + 
+                    PctHSgrad + Rural + PctBlack + MedianHouseIncome, 
+           data = df_gen, family= "binomial")
+summary(mod_gen)
+```
+
+
+## Partial Pooling 
+
+```{r}
+df_gen$Age <- (df_gen$Age - mean(df_gen$Age))/sd(df_gen$Age)
+m_gen <- glmer(Voted ~ Age + Race +
+                       Rainfall12 + 
+             (1|FIPScode) + (1|Year), 
+           data = df_gen, family= "binomial")
+summary(m_gen)
+```
+
+### BUGS 
+```{r}
+library(R2OpenBUGS)
+
+model {
+        for (i in 1:n){
+                Voted[i] ~ dbin (p.bound[i], 1)
+                p.bound[i] <- max(0, min(1, p[i]))
+                logit(p[i]) <- Xbeta[i]
+                Xbeta[i] <- b.0 + b.Age*Age[i] + b.Race*Race[i] +
+                        b.Rainfall12*Rainfall12[i] + 
+                        alpha[county[i]] + delta[year[i]] }
+        b.0 ~ dnorm (0, .0001)
+        b.Age ~ dnorm (0, .0001) 
+        b.Race ~ dnorm (0, .0001) 
+        b.Rainfall12 ~ dnorm (0, .0001)
+        for (j in 1:n.county) {
+                alpha[j] ~ dnorm (0, tau.county)} 
+        for (j in 1:n.year) { 
+                delta[j] ~ dnorm(0, tau.year)}
+        tau.county <- pow(sigma.county, -2)
+        tau.year <- pow(sigma.year, -2)
+        sigma.county ~ dunif(0, 100)
+        sigma.year ~ dunif(0, 100)
+}
+
+data <- list(y = )
+
+```
+
+
+## References
+

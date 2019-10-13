@@ -1,0 +1,198 @@
+---
+title: "CCES data exploration"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  prettydoc::html_pretty:
+          fontsize: 12pt
+---
+
+```{r, include=FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
+setwd("~/Dropbox/weather voting replication shared")
+
+# load favorite libraries
+source("00_setup.R")
+
+# load the datasets that we've already made
+cces2006 <- readRDS("cces_data/cces2006.rds")
+cces2008 <- readRDS("cces_data/cces2008.rds")
+cces2010 <- readRDS("cces_data/cces2010.rds")
+cces2012 <- readRDS("cces_data/cces2012.rds")
+map_cces2006 <- readRDS("cces_data/map_cces2006.rds")
+map_cces2008 <- readRDS("cces_data/map_cces2008.rds")
+map_cces2010 <- readRDS("cces_data/map_cces2010.rds")
+map_cces2012 <- readRDS("cces_data/map_cces2012.rds")
+```
+
+
+```{r, eval = FALSE}
+# load and clean the data 
+source("01_load_ccesdata.R")
+source("02_add_FIPScode.R")
+source("03_match_weather.R")
+source("04_clean_data.R")
+```
+
+
+## County-level Rainfalls 
+
+```{r, eval = FALSE}
+# Join df_map to cces datasets
+#------------------------------
+source("df_map.R")
+```
+
+
+
+```{r, echo = FALSE, results= 'asis'}
+# Create theme 
+theme.map <- theme(text = element_text(family = "Gill Sans", 
+                                       color = "#444444"),
+         plot.title = element_text(size = 20),
+         plot.subtitle = element_text(size = 16),
+         axis.text = element_blank(),
+         axis.title = element_blank(),
+         axis.ticks = element_blank(),
+         panel.grid = element_blank(),
+         legend.background = element_blank(),
+         panel.background = element_blank()
+        )
+
+## Rainfall map plot for 2006
+plot.rainfall_2006 <- map_cces2006 %>% 
+        ggplot(aes(x = long, y = lat, group = group)) +
+        geom_polygon(aes(fill = Rainfall12.spi)) +
+        theme.map +
+        labs(title = paste("Rainfall SPI",
+                     'for sampled counties in 2006', sep = ' '),
+                fill = "Rainfall SPI") +
+        scale_fill_viridis_c()
+plot.rainfall_2006
+ggsave("fig/plot.rainfall_2006.png")
+
+# Rainfall map plot for 2008
+plot.rainfall_2008 <- map_cces2008 %>% 
+        ggplot(aes(x = long, y = lat, group = group)) +
+        geom_polygon(aes(fill = Rainfall12.spi)) +
+        theme.map +
+        labs(title = paste('Rainfall SPI',
+                     'for sampled counties in 2008', sep = ' '),
+                fill = paste('Rainfall', "SPI", sep = ' ')
+                ) +
+        scale_fill_viridis_c()
+plot.rainfall_2008
+ggsave("fig/plot.rainfall_2008.png")
+
+# Rainfall map plot for 2010
+plot.rainfall_2010 <- map_cces2010 %>% 
+        ggplot(aes(x = long, y = lat, group = group)) +
+        geom_polygon(aes(fill = Rainfall12.spi)) +
+        theme.map +
+        labs(title = paste('Rainfall SPI',
+                     'for sampled counties in 2010', sep = ' '),
+                fill = paste('Rainfall', "SPI", sep = ' ')
+                ) +
+        scale_fill_viridis_c()
+plot.rainfall_2010
+ggsave("fig/plot.rainfall_2010.png")
+
+# Rainfall map plot for 2012
+plot.rainfall_2012 <- map_cces2012 %>% 
+        ggplot(aes(x = long, y = lat, group = group)) +
+        geom_polygon(aes(fill = Rainfall12.spi)) +
+        theme.map +
+        labs(title = paste('Rainfall SPI',
+                     'for sampled counties in 2012', sep = ' '),
+                fill = paste('Rainfall', "SPI", sep = ' ')
+                ) +
+        scale_fill_viridis_c()
+plot.rainfall_2012
+ggsave("fig/plot.rainfall_2012.png")
+```
+
+
+
+
+
+## Plot density map 
+
+```{r, echo = FALSE}
+# Get observation count for each county
+cces2006_density <- cces2006 %>% group_by(FIPScode) %>%
+        mutate(count = n()) %>% select(v1004, FIPScode, count)
+
+# Join the map data to the count data
+map_cces2006_density <- left_join(df_map, as_tibble(cces2006_density), 
+                          by = 'FIPScode')
+
+# Plot density map
+plot.density_2006 <- map_cces2006_density %>% 
+        ggplot(aes(x = long, y = lat, group = group)) +
+        geom_polygon(aes(fill = count)) +
+        theme.map +
+        labs(title = "Observation density for sampled counties in 2006",
+                fill = "Observation count") +
+        scale_fill_viridis_c(option = "plasma")
+plot.density_2006
+ggsave("fig/plot.density_2006.png")
+
+
+# cces2008
+cces2008_density <- cces2008 %>% group_by(FIPScode) %>%
+        mutate(count = n()) %>% select(FIPScode, count)
+map_cces2008_density <- left_join(df_map, as_tibble(cces2008_density), 
+                          by = 'FIPScode')
+plot.density_2008 <- map_cces2008_density %>% 
+        ggplot(aes(x = long, y = lat, group = group)) +
+        geom_polygon(aes(fill = count)) +
+        theme.map +
+        labs(title = "Observation density for sampled counties in 2008",
+                fill = "Observation count") +
+        scale_fill_viridis_c(option = "plasma")
+plot.density_2008
+ggsave("fig/plot.density_2008.png")
+
+# cces2010
+cces2010_density <- cces2010 %>% group_by(FIPScode) %>%
+        mutate(count = n()) %>% select(FIPScode, count)
+map_cces2010_density <- left_join(df_map, as_tibble(cces2010_density), 
+                          by = 'FIPScode')
+plot.density_2010 <- map_cces2010_density %>% 
+        ggplot(aes(x = long, y = lat, group = group)) +
+        geom_polygon(aes(fill = count)) +
+        theme.map +
+        labs(title = "Observation density for sampled counties in 2010",
+                fill = "Observation count") +
+        scale_fill_viridis_c(option = "plasma")
+plot.density_2010
+ggsave("fig/plot.density_2010.png")
+
+# cces2012 
+cces2012_density <- cces2012 %>% group_by(FIPScode) %>%
+        mutate(count = n()) %>% select(FIPScode, count)
+map_cces2012_density <- left_join(df_map, as_tibble(cces2012_density), 
+                          by = 'FIPScode')
+plot.density_2012 <- map_cces2012_density %>% 
+        ggplot(aes(x = long, y = lat, group = group)) +
+        geom_polygon(aes(fill = count)) +
+        theme.map +
+        labs(title = "Observation density for sampled counties in 2012",
+                fill = "Observation count") +
+        scale_fill_viridis_c(option = "plasma")
+plot.density_2012
+ggsave("fig/plot.density_2012.png")
+```
+
+```{r}
+ggplotly(plot.density_2012)
+```
+
+
+
+## Session info 
+
+```{r, eval = TRUE}
+sessionInfo()
+```
+

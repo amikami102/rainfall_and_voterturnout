@@ -1,0 +1,12 @@
+name: cces_visual
+title: cces_visual
+username:
+account: asakomikami
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 398802
+bundleId: 1532203
+url: https://asakomikami.shinyapps.io/cces_visual/
+when: 1534150818.24829
+asMultiple: FALSE
+asStatic: FALSE
